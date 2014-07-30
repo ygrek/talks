@@ -1,0 +1,5 @@
+"example_cppo.ml": dversion
+"example_bitstring.ml": syntax_camlp4o, package(bitstring.syntax)
+"example_bitstring.native": package(bitstring)
+"example_lwt.ml": syntax_camlp4o, package(lwt.syntax)
+"example_lwt.native": package(lwt.unix)

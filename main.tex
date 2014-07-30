@@ -1,0 +1,200 @@
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{lmodern}
+\pdfcompresslevel=9
+\usepackage{listings}
+\usepackage{amssymb,amsfonts,amsmath,mathtext}
+\usepackage{cite,enumerate,float,indentfirst}
+\usepackage{hyperref}
+\usepackage{color}
+
+\hypersetup{colorlinks=true}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+  language=ml,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\tiny\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true
+  tabsize=3
+}
+
+\newcommand{\cmd}[1]{\texttt{{#1}}}
+\newcommand{\run}[1]{\begin{tiny}\cmd{{#1}}\end{tiny}}
+
+\title{Metaprogramming in OCaml}
+\author{ygrek}
+\institute{OCaml@Singapore}
+\date{Jul 30, 2014}
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}
+\frametitle{Overview}
+ \begin{itemize}
+  \item Introduction
+  \item cppo
+  \item camlp4
+  \item ppx
+  \item metaocaml
+ \end{itemize}
+\end{frame}
+
+\section{Introduciton}
+
+\begin{frame}
+\frametitle{Metaprogramming}
+Literally, \emph{programming a program} --- writing a program to manipulate another program (or itself).
+\begin{itemize}
+\item Reflexivity and \emph{eval}
+\item Meta and object language, homoiconicity
+\item Two axes: spatial (macros) and temporal (stages)
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Approaches}
+Naive classification by the object of manipulation
+\begin{itemize}
+\item \emph{lexical} --- lexemes of the language: \cmd{cppo}
+\item \emph{syntactic} --- Abstract Syntax Tree (AST): \cmd{camlp4}, \cmd{ppx}
+\item \emph{runtime} --- compiled code: \cmd{metaocaml}
+\end{itemize}
+\end{frame}
+
+\section{cppo}
+
+\begin{frame}
+\frametitle{cppo: The C preprocessor for OCaml}
+\begin{itemize}
+\item Simple text-based preprocessor in the spirit of \texttt{cpp}
+\item Understands OCaml lexical rules
+\item Usual set of directives: \texttt{\#define}, \texttt{\#if}, \texttt{\#include} and others
+\item Install: \cmd{opam install cppo}
+\item \url{http://mjambon.com/cppo.html}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{cppo: Example}
+Source:
+\lstinputlisting{example_cppo.ml}
+Compile:
+\\
+\run{ocamlc -pp "cppo -D OCAML400" example\_cppo.ml}
+\\
+Result of preprocessing:
+\lstinputlisting{example_cppo_pp.ml}
+\end{frame}
+
+\section{camlp4}
+
+\begin{frame}
+\frametitle{camlp4: OCaml PreProcessor and Pretty-Printer}
+\begin{itemize}
+\item extensible parser and pretty-printer OCaml library
+\item included in distribution (< 4.02)
+\item complex and very powerful, arbitrary syntax modifications
+\item little documentation
+\item revised syntax, pa\_openin, deriving, bitstring, pa\_lwt, etc
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{camlp4: Example (bitstring syntax)}
+\lstinputlisting{example_bitstring.ml}
+\end{frame}
+
+\begin{frame}
+\frametitle{camlp4: Example (deriving generator)}
+\lstinputlisting{example_camlp4.ml}
+\end{frame}
+
+\begin{frame}
+\frametitle{camlp4: Example (lwt syntax)}
+\lstinputlisting{example_lwt.ml}
+\lstinputlisting{example_lwt_pp.ml}
+\end{frame}
+
+\begin{frame}
+\frametitle{camlp4: Example (cont.)}
+Compile:
+\\
+\run{ocamlfind ocamlc -verbose -c -syntax camlp4o -package lwt.syntax example\_lwt.ml}
+\\
+See result of preprocessing:
+\\
+\run{camlp4 -I +camlp4 -I lwt -parser o -parser op -printer o lwt-syntax-options.cma lwt-syntax.cma example\_lwt.ml}
+\\
+META:
+\lstinputlisting{example_camlp4.META}
+\end{frame}
+
+\section{ppx}
+
+\begin{frame}
+\frametitle{ppx: Extension points}
+\begin{itemize}
+\item generic attributes attached to AST nodes
+\item available since OCaml 4.02
+\item \cmd{compiler-libs}
+\item \cmd{ppx\_tools}, \cmd{ppx\_metaquot}
+\item \cmd{-dsource}, \cmd{-dparsetree}, \cmd{-dtypedtree}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{ppx: Example (attributes)}
+\lstinputlisting{example_ppx.ml}
+\end{frame}
+
+\begin{frame}
+\frametitle{ppx: Example (generator)}
+\lstinputlisting{example_ppx_gen.ml}
+\end{frame}
+
+\section{metaocaml}
+
+\begin{frame}
+\frametitle{MetaOCaml: staged OCaml metaprogramming}
+\begin{itemize}
+\item modification to OCaml compiler
+\item BER = Bracket, Escape, Run
+\item multiple stages
+\item Install: \cmd{opam switch 4.01.0+BER}
+\item \url{http://okmij.org/ftp/ML/MetaOCaml.html}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{MetaOCaml: Example}
+\lstinputlisting{example_meta1.ml}
+\end{frame}
+
+\section{}
+
+\begin{frame}
+\frametitle{The End}
+\centering
+\includegraphics[height=0.85\textheight]{this-is-meta.png}
+\end{frame}
+
+\end{document}

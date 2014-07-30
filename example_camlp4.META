@@ -1,0 +1,9 @@
+package "syntax" (
+ version = "2.4.5"
+ description = "Syntactic sugars for Lwt"
+ requires = "camlp4 lwt.syntax.options"
+ archive(syntax, preprocessor) = "lwt-syntax.cma"
+ archive(syntax, toploop) = "lwt-syntax.cma"
+ archive(syntax, preprocessor, native) = "lwt-syntax.cmxa"
+ archive(syntax, preprocessor, native, plugin) = "lwt-syntax.cmxs"
+)
