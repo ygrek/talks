@@ -1,0 +1,296 @@
+\usepackage{fontspec}
+\usepackage{graphicx,listings,verbatim,hyperref,color}
+\usepackage{cite,enumerate,float,indentfirst}
+
+\hypersetup{colorlinks=true}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+  language=ml,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\tiny\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true
+  tabsize=3,
+  morekeywords={try,match,module,external},
+  frame=single
+}
+
+\newcommand{\cmd}[1]{\texttt{{#1}}}
+\newcommand{\run}[1]{\begin{tiny}\cmd{{#1}}\end{tiny}}
+
+\title{OCaml 4.02}
+\author{ygrek}
+\institute{OCaml@Singapore}
+\date{Nov 25, 2014}
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}
+\frametitle{Disclaimer}
+This talk is a shameless ripoff and compilation of OCaml changelog, documentation, bugtracker and ICFP'14 slides.
+
+All respect goes to original authors, all mistakes and misrepresentations are mine.
+\end{frame}
+
+\section{Timeline}
+
+\begin{frame}
+\frametitle{Past}
+\begin{itemize}
+\item \emph{3.12} (August 2010)
+\begin{itemize}
+\item polymorphic recursion
+\item first-class modules
+\item record fields punning
+\end{itemize}
+\item \emph{4.00} (July 2012)
+\begin{itemize}
+\item GADTs
+\item \cmd{-bin-annot} typedtree dump
+\end{itemize}
+\item \emph{4.01} (April 2014)
+\begin{itemize}
+\item \cmd{-ppx} parsetree rewriters
+\item type-level disambiguation of record labels
+\item \cmd{(|>)} and \cmd{(@@)} in \cmd{Pervasives}
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Current}
+\emph{4.02} (August 2014)
+\begin{itemize}
+\item attributes
+\item module aliases
+\item \cmd{-safe-string} read-only strings
+\item match case for exceptions
+\item generative functors
+\item open types
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Future?}
+\begin{itemize}
+\item ephemerons
+\item smarter inliner
+\item modular implicits (aka scoped typeclasses)
+\end{itemize}
+\end{frame}
+
+\section{4.02}
+
+\begin{frame}
+\frametitle{Attributes}
+Standard way to put annotations on AST nodes from the source code. Those annotations can later be consumed
+by \cmd{ppx} rewriters and the compiler itself. Possible (future) uses:
+\begin{itemize}
+\item anchors for code generation
+\item per-scope enabling of certain compiler features (options, warnings)
+\item deprecation markers (\cmd{[@@ocaml.deprecated]})
+\item documentation comments
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Attributes (example)}
+\lstinputlisting{attributes.ml}
+\cmd{ocamlc -c -dparsetree attributes.ml} :
+\lstinputlisting{attributes.parsetree}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Module aliases}
+New signature item
+\begin{lstlisting}
+module A = B
+\end{lstlisting}
+which records and tracks the equality of module paths. The aliases are expanded only at the place
+of usage, not at definition.
+
+Benefits :
+\begin{itemize}
+\item solution to the long-standing issue with functors depending on  syntactic module paths equality
+\item smaller compiled objects and interfaces
+\item faster compilation
+\item less link-time dependencies and smaller binaries (\cmd{-no-alias-deps})
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Read-only strings}
+Introduces \cmd{type bytes} equal to \cmd{string} (preserving backward compatibility) unless
+option \cmd{-safe-string} is used, in which case it is opaque.
+Module \cmd{Bytes} in standard library can be used to create values of this type.
+\par
+The intended usage is: \cmd{Bytes} for writable buffers, \cmd{String} for read-only strings.
+Option \cmd{-safe-string} is likely to become default in the future compiler release.
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Read-only strings (cont.)}
+\begin{lstlisting}
+# #show_module Bytes;;
+module Bytes :
+  sig
+    ...
+    val make : int -> char -> bytes
+    val init : int -> (int -> char) -> bytes
+    val of_string : string -> bytes
+    val to_string : bytes -> string
+    val sub : bytes -> int -> int -> bytes
+    val sub_string : bytes -> int -> int -> string
+    ...
+  end
+# #show_module String;;
+module String :
+  sig
+    external length : string -> int = "%string_length"
+    external get : string -> int -> char = "%string_safe_get"
+    external set : bytes -> int -> char -> unit = "%string_safe_set"
+    ...
+  end
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}
+\frametitle{Match case for exceptions}
+Well-known inconvenience for seasoned OCaml programmers: catching exceptions in tail recursive function.
+\onslide<+->
+\lstinputlisting{lines_bad.ml}
+\onslide<+->
+\lstinputlisting{lines_ugly.ml}
+\onslide<+->
+\lstinputlisting{lines_good.ml}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Generative functors}
+Consider functor applied to the same module twice:
+\begin{lstlisting}
+module F (X : sig end) = struct type t end
+module B1 = F(String)
+module B2 = F(String)
+let f (x:B1.t) : B2.t = x
+(* val f : B1.t -> B2.t = <fun> *)
+\end{lstlisting}
+Should $B1.t$ be considered equal to $B2.t$ or not?
+OCaml's functors are \emph{applicative} by default, which means that functor applications with equal parameters
+yield modules with equal type components.
+
+But sometimes \emph{generative} functors are desired, which generate new types for each application.
+\begin{lstlisting}
+module F (X : sig end) () = struct type t end
+module B1 = F(String)()
+module B2 = F(String)()
+let f (x:B1.t) : B2.t = x
+(* Error: This expression has type B1.t but an expression was expected of type B2.t *)
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Open types}
+OCaml already had one extensible type that could have constructors added after it's definition. This is
+the type of exceptions : \cmd{exn}. It is special - one couldn't define new types with such behaviour. Not anymore:
+\begin{lstlisting}
+# type t = ..;;
+type t = ..
+# type t += A | B of int;;
+type t += A | B of int
+# B 2;;
+- : t = B 2
+# C 3.;;
+Error: Unbound constructor C
+# type t += C of int;;
+type t += C of float
+# C 3.;;
+- : t = C 3.
+\end{lstlisting}
+Obviously, every pattern match on the value of open type should include wildcard case.
+\end{frame}
+
+\begin{frame}
+\frametitle{FIN}
+And all this goodness is just one command away. Do it now :
+\begin{verbatim}
+opam switch 4.02.1
+\end{verbatim}
+\end{frame}
+
+\section{Community}
+
+\begin{frame}
+\frametitle{Community efforts}
+\begin{itemize}
+\item OPAM
+\item merlin
+\item github pull requests
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{OPAM}
+New OPAM 1.2 release adds several useful features.
+\begin{itemize}
+\item usable \cmd{opam pin}
+\item \cmd{opam source}
+\item \cmd{dev-repo} field in \emph{opam} files
+\item \cmd{\{build\}} filter for \cmd{depends}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{merlin}
+Code browsing tool for OCaml projects.
+
+Integrates with Vim, Emacs, acme and Sublime Text, can be extended to support any capable editor.
+Uses \emph{bin-annot} files produced by the compiler and handles partial builds.
+
+Provides:
+\begin{itemize}
+\item type throwback for values under cursor
+\item "Go to definition" across the whole project (and possibly for external libraries)
+\item background build and on-the-fly error messages
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{github}
+Since some time ago there is an official mirror of OCaml compiler on github.
+
+More importantly the pull requests against that repo are considered by Inria team.
+
+Getting the patch into OCaml compiler had never been easier. Push it while it lasts!
+\end{frame}
+
+\section{References}
+
+\begin{frame}
+\frametitle{References}
+\begin{enumerate}[1)]
+\item \href{http://whitequark.org/blog/2014/04/16/a-guide-to-extension-points-in-ocaml/}{A Guide to Extension Points in OCaml}
+\item \url{https://ocaml.org/meetings/ocaml/2014/}
+\item \href{https://ocaml.org/meetings/ocaml/2014/OCaml2014-Leroy-slides.pdf}{The State of OCaml}
+\item \href{https://ocaml.org/meetings/ocaml/2014/ocaml2014_2.pdf}{Ephemerons meet OCaml GC}
+\item \url{https://github.com/ocaml/ocaml}
+\end{enumerate}
+\end{frame}
+
+\end{document}

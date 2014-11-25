@@ -1,0 +1,8 @@
+[
+  structure_item (attributes.ml[1,0+0]..[4,45+14])
+    Pstr_type
+    [
+      type_declaration "t" (attributes.ml[1,0+5]..[1,0+6]) (attributes.ml[1,0+5]..[4,45+14])
+        attribute "generate"
+          []
+...
